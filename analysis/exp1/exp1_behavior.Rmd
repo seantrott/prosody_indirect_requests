@@ -1,0 +1,439 @@
+---
+title: "Prosody: Experiment 1"
+output: 
+  html_document:
+    toc: true
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(forcats)
+library(lme4)
+```
+
+# Reading in data
+
+```{r}
+dat = read.csv("../../data/exp1/experiment1_concat_full.csv")
+
+coded = filter(dat, answer %in% c("first", "second"))
+
+coded$speaker = fct_recode(coded$speaker,
+                           "S1" = "Danny",
+                           "S2" = "Karen",
+                           "S3" = "Katie",
+                           "S4" = "Maiyi",
+                           "S5" = "Nimish")
+
+
+coded$form = fct_recode(coded$form, 
+                        "conventional" = "modal",
+                        "non-conventional" = "indirect")
+```
+
+## Add order column
+
+```{r}
+coded$Order = coded$trial_index - 6
+
+```
+
+## Checking over data
+
+```{r}
+length(unique(coded$subject))
+table(coded$speaker, coded$form)
+```
+
+## General demographic information
+
+```{r}
+temp_demo = distinct(coded, subject, Gender, Age, Native_Speaker)
+```
+
+```{r}
+mean(temp_demo$Age)
+sd(temp_demo$Age)
+range(temp_demo$Age)
+```
+
+```{r}
+table(temp_demo$Gender)
+```
+
+```{r}
+table(temp_demo$Native_Speaker)
+```
+
+### Filter out non-native speakers
+
+```{r}
+coded = coded %>%
+  filter(Native_Speaker == "Yes")
+```
+
+
+# Can people detect a signal, generally?
+
+## Descriptive
+
+```{r}
+mean(coded$correct)
+sd(coded$correct)
+```
+
+
+## Visualization
+```{r}
+coded %>%
+  ggplot(aes(x = answer, y = button_pressed)) +
+  geom_bar(stat="summary", position="dodge", fun.y="mean") +
+  stat_summary (fun.y = function(x){mean(x)},
+                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
+                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
+                geom= 'pointrange', 
+                position=position_dodge(width=0.95)) +
+  theme_minimal() +
+  ggtitle("% 'Second' by condition") +
+  xlab("Condition") +
+  ylab("Percent choosing 'second' utterance") +
+  scale_y_continuous(limits = c(0, 1))
+```
+
+## Analysis
+
+A **glmer** model predictig *response* from *correct answer* explains more variance than a model without the fixed effect of *correct answer*. (Both models contain random slopes for items and subjects.) In other words, participants are sensitive overall to which utterance was intended as a request.
+
+```{r}
+m1 = glmer(data=coded, response ~ answer + (1 + answer | stimNum) +
+             (1 + answer | subject),
+           control=glmerControl(optimizer="bobyqa"),
+         family=binomial())
+
+m1.reduced =glmer(data=coded, response ~ (1 + answer | stimNum) +
+                    (1 + answer | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                    family=binomial())
+
+anova(m1,m1.reduced)
+```
+
+# How does accuracy interact with other factors?
+
+## Visualization 
+
+```{r}
+coded %>%
+  ggplot(aes(x = speaker, y = correct, fill = form)) +
+  geom_bar(stat="summary", position="dodge", fun.y="mean") +
+  stat_summary (fun.y = function(x){mean(x)},
+                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
+                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
+                geom= 'pointrange', 
+                position=position_dodge(width=0.95)) +
+  theme_minimal() +
+  labs(x = "Speaker",
+       y = "Accuracy",
+       title = "Accuracy by form and speaker") +
+  geom_hline(yintercept=.5, colour="black", linetype="dotted")
+```
+
+## Analysis
+
+### Building the models
+```{r}
+
+m1 = glmer(data=coded, correct ~ form*speaker + (1 + speaker | stimNum) +
+             (1 + form | subject),
+           control=glmerControl(optimizer="bobyqa"),
+         family=binomial())
+
+m1.reduced =glmer(data=coded, correct ~ form + speaker + (1 + speaker | stimNum) +
+                    (1 + form | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                    family=binomial())
+
+m1.reduced.form = glmer(data=coded, correct ~ form + (1 + speaker | stimNum) +
+                    (1 + form | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                    family=binomial())
+
+m1.reduced.speaker = glmer(data=coded, correct ~ speaker + (1 + speaker | stimNum) +
+                    (1 + form | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                    family=binomial())
+
+m1.null = glmer(data=coded, correct ~ (1 + speaker | stimNum) +
+                    (1 + form | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                    family=binomial())
+
+
+```
+
+### Model comparisons
+
+All models constructed with random slopes for effect of speaker per item, and random slopes for effect form per subject.
+
+**Summary**:  
+* Model with interaction between *form* and *speaker* explains more variance than model with only fixed effects.   
+* Model with both fixed effects better than models with only one (e.g. just form, or just speaker).  
+* Models with only form, or only speaker, both better than null model.
+
+```{r}
+anova(m1, m1.reduced)
+anova(m1.reduced, m1.reduced.form)
+anova(m1.reduced, m1.reduced.speaker)
+anova(m1.reduced.form, m1.null)
+anova(m1.reduced.speaker, m1.null)
+```
+
+### Different visualization
+
+
+```{r}
+summ.prosody <- coded %>% group_by(subject, speaker, form) %>% summarise(accuracy = mean(correct))
+
+s = table(summ.prosody$subject, summ.prosody$speaker)
+
+summ.prosody %>%
+  ggplot(aes(x = factor(speaker),
+             y = factor(subject),
+             fill = accuracy)) +
+  geom_tile() +
+  facet_grid(~form)
+
+summ.prosody %>%
+  ggplot(aes(x = speaker,
+             y = accuracy,
+             fill = form)) +
+  geom_boxplot() +
+  labs(x = "Speaker",
+       y = "Accuracy",
+       title = "Accuracy by speaker and form") +
+  geom_hline(yintercept = .5, colour = "red", linetype = "dotted") +
+  theme_minimal()
+
+ggsave("Figures/experiment1_accuracy.tiff", 
+       units="in", width=6, height=4, dpi=300)
+ggsave("Figures/experiment1_accuracy.pdf", 
+       units="in", width=6, height=4, dpi=300)
+  
+ggplot(data=summ.prosody, aes(x=accuracy, fill=form)) +
+  geom_density(alpha=.7) +
+  theme_minimal() +
+  geom_vline(xintercept = .5, colour="black", linetype="dotted") +
+  facet_grid(~speaker)
+```
+
+# Exploratory Analyses
+
+## Effects of order?
+
+```{r}
+coded %>%
+  ggplot(aes(x=Order, y=correct)) +
+  geom_point(stat="summary", fun.y="mean") + 
+  stat_summary (fun.y = function(x){mean(x)},
+                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
+                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
+                geom= 'pointrange', 
+                position=position_dodge(width=0.95)) +
+  theme_minimal() +
+  xlab("Order") +
+  ylab("Accuracy") +
+  geom_smooth(method = "lm") +
+  scale_y_continuous(limits=c(0, 1)) +
+  geom_vline(xintercept = c(12, 24, 36, 48), linetype = "dotted")
+
+```
+
+### Analysis
+
+A model with a fixed effect of order explains no more variance in accuracy than a model with no fixed effects.
+
+```{r}
+
+
+m1.order =glmer(data=coded, correct ~ Order + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+m1.null =glmer(data=coded, correct ~ (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+anova(m1.order,m1.null)
+```
+
+### Order by block
+
+It might also be the case that accuracy improves for each block, but not overall. 
+
+Simply adding an interaction between order and speaker won't directly address whether people improve for a given speaker, because a given speaker could've occurred in the first block or the fifth block; this means that the overall trial number (as indexed by *order*) won't reflect the relative number of the trial *for that speaker* (e.g. comparing trial 11 to trial 24). 
+
+Instead, we can *rescale* order to always be between 0-11, e.g. the *order of a trial within a block*. Below, we ask whether the relative order of a trial predicts its accuracy (e.g. whether people improve within each block), and whether this varies by speaker.
+
+Based on model comparisons, we find weak evidence that the order within a block matters. Adding *order_by_block* improves the model over a null model, and over a model including a separate fixed effect for *speaker*. There's no evidence for an significant interaction between *order_by_block* and *speaker*. 
+
+In other words, it is possible that participants improve slightly *within* each block, but they don't seem to improve overall. The amount that they improve within each block is not dependent on the speaker.
+
+```{r}
+
+coded$order_by_block = coded$Order %% 12
+table(coded$order_by_block)
+
+
+
+
+m1.order_with_speaker_interaction =glmer(data=coded, correct ~ order_by_block * speaker + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+m1.order_plus_speaker =glmer(data=coded, correct ~ order_by_block + speaker + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+
+m1.only_speaker =glmer(data=coded, correct ~ speaker + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+m1.order_by_block =glmer(data=coded, correct ~ order_by_block + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+m1.null =glmer(data=coded, correct ~ (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+anova(m1.order_with_speaker_interaction, m1.order_plus_speaker)
+anova(m1.order_plus_speaker, m1.only_speaker)
+anova(m1.order_by_block, m1.null)
+```
+
+```{r}
+coded %>%
+  ggplot(aes(x=order_by_block, y=correct)) +
+  geom_point(stat="summary", fun.y="mean") + 
+  stat_summary (fun.y = function(x){mean(x)},
+                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
+                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
+                geom= 'pointrange', 
+                position=position_dodge(width=0.95)) +
+  theme_minimal() +
+  xlab("Order by block") +
+  ylab("Accuracy") +
+  geom_smooth(method = "lm") +
+  scale_y_continuous(limits=c(0, 1))
+```
+
+
+## Gender
+
+### Visualization
+
+```{r}
+coded %>%
+  ggplot(aes(x=speaker, y=correct, fill = form)) +
+  geom_bar(stat="summary", position="dodge", fun.y="mean") +
+  stat_summary (fun.y = function(x){mean(x)},
+                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
+                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
+                geom= 'pointrange', 
+                position=position_dodge(width=0.95)) +
+  theme_minimal() +
+  ggtitle("Accuracy by form and speaker") +
+  xlab("Speaker") +
+  ylab("Accuracy") +
+  geom_hline(yintercept=.5, colour="black", linetype="dotted") +
+  facet_grid(~Gender)
+```
+
+### Analysis
+
+A model with a fixed effect of gender explains no more variance in accuracy than a model with no fixed effects.
+
+```{r}
+
+m1.gender =glmer(data=coded, correct ~ Gender + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+m1.null =glmer(data=coded, correct ~ (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+anova(m1.gender,m1.null)
+```
+
+
+## Musical Ability
+
+### Visualization
+
+```{r}
+coded %>%
+  ggplot(aes(x=factor(correct), y=Music_Ability)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+### Analysis
+
+A model with a fixed effect of musical ability explains no more variance in accuracy than a model with no fixed effects.
+
+```{r}
+
+m1.music =glmer(data=coded, correct ~ Music_Ability + (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+m1.null =glmer(data=coded, correct ~ (1 | stimNum) +
+                    (1 | subject),
+                  control=glmerControl(optimizer="bobyqa"),
+                  family=binomial())
+
+anova(m1.music,m1.null)
+```
+
+## Individual differences
+
+```{r}
+summ.prosody %>%
+  ggplot(aes(x = accuracy)) +
+  geom_histogram(bins = 7) +
+  labs(title = "Individual differences in accuracy") +
+  geom_vline(xintercept = .5, linetype = "dotted") +
+  theme_minimal()
+
+summ.prosody %>%
+  ggplot(aes(x = accuracy)) +
+  geom_histogram(bins = 7) +
+  labs(title = "Individual differences in accuracy") +
+  geom_vline(xintercept = .5, linetype = "dotted") +
+  facet_grid(~form) +
+  theme_minimal()
+
+
+```
+
+
+# Discussion
+
+Key takeaways: 
+
+Overall, listeners are able to detect which of two utterances was intended as a request. This suggests that speakers are capable of producing discriminable cues when asked to.
+
+Some speakers were better than others, however. Additionally, *Modal forms* were easier to discriminate than *Indirect Statements*. Finally, there were individual differences across subjects, though the distribution was left-skewed; considerably more subjects were more accurate than chance overall.
+
+Analysis of accuracy by *order* suggests that participants didn't improve overall as the experiment went on. However, analysis of *within-block order* provides weak evidence that participants may improve slightly within each speaker-block; the magnitude of this improvement did not seem to depend on the particular speaker. In other words, participants don't get better at detecting intent *in general* over the course of the study, but *for each speaker*, they may improve over the course of those 12 trials. If this is true, it suggests that participants can **adapt** to a given speaker, but that this adaptation may not transfer to new speakers. (This seems at odds with the observation that similar acoustic features are predictive intent *across* speakers.)
+
+

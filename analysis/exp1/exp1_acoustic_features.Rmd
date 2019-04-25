@@ -1,0 +1,507 @@
+---
+title: 'Experiment 1: Acoustic Features'
+output: html_document
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(forcats)
+library(lme4)
+```
+
+
+# Introduction
+
+Can we predict accuracy on Experiment 1 with the acoustic features?
+
+# Load data
+
+## Audio features
+
+Now we load the raw audio files and try to predict subject's responses from acoustic features. We follow the z-scaling procedure reported in Trott & Bergen (2019, CogSci submission).
+
+```{r}
+# setwd("/Users/seantrott/Dropbox/UCSD/Research/IndirectSpeechActs/Prosody/Experiment1_Full")
+df_audio = read_csv("../../data/audio_features/audio_features.csv")
+df_audio$label = factor(df_audio$label)
+
+df_audio$label = fct_recode(df_audio$label,
+                            "request" = "IR",
+                            "literal" = "Literal")
+
+```
+
+
+```{r}
+df_audio = df_audio %>% 
+  group_by(speaker) %>% 
+  mutate(mean_f0_z_score = scale(mean_f0),
+         duration_f0_z_score = scale(duration_f0),
+         range_f0_z_score = scale(range_f0),
+         sd_f0_z_score = scale(sd_f0),
+         slope_f0_z_score = scale(slope_f0),
+         mean_intensity_z_score = scale(mean_intensity),
+         sd_intensity_z_score = scale(sd_intensity)
+         )
+```
+
+
+## Experimental data
+
+```{r}
+
+experimental_data = read.csv("../../data/exp1/experiment1_concat_full.csv")
+experimental_data = filter(experimental_data, answer %in% c("first", "second"))
+
+
+
+experimental_data$speaker_recoded = fct_recode(experimental_data$speaker,
+                           "S1" = "Danny",
+                           "S2" = "Karen",
+                           "S3" = "Katie",
+                           "S4" = "Maiyi",
+                           "S5" = "Nimish")
+
+experimental_data$item = factor(paste(experimental_data$speaker_recoded, experimental_data$stimNum, sep = "_"))
+
+
+experimental_data$form = fct_recode(experimental_data$form,
+                           "conventional" = "modal",
+                           "nonconventional" = "indirect")
+
+
+```
+
+
+# Train classifier(s)
+
+We already know/believe that the acoustic features are predictive of people's responses, and of accuracy. We also know they interact with **form**.
+
+Now, we test the ability of a classifier (logistic regression) to learn which features best predict **intent**. We validate its accuracy using leave-one-out cross validation (LOOCV); that is, for each item *Y*, we train the classifier on every *other* item, then try to predict *Y*. We then average the accuracy across all predicted items.
+
+
+## Logistic regression
+
+### Use Leave-one-out cross-validation
+
+```{r}
+df_audio$index = c(1: nrow(df_audio))
+prob_outputs = c()
+for (iterating_index in c(1:nrow(df_audio))) {
+  
+  train = df_audio %>%
+    filter(index != iterating_index)
+  
+  test = df_audio %>%
+    filter(index == iterating_index)
+  
+  model_core = glm(data = train,
+                  label ~ mean_f0_z_score*form + range_f0_z_score*form + 
+                    sd_f0_z_score*form + duration_f0_z_score*form + 
+                    slope_f0_z_score*form + mean_intensity_z_score*form + 
+                    sd_intensity_z_score*form,
+                   family = binomial())
+  
+  probabilities = predict(model_core, test, type="response")
+
+  prob_outputs[iterating_index] = probabilities
+}
+
+df_audio$lr_probs = prob_outputs
+
+df_audio$lr_prediction = ifelse(df_audio$lr_probs > 0.5,
+                             "literal","request")
+
+df_audio$lr_correct = df_audio$lr_prediction == df_audio$label
+mean(df_audio$lr_correct)
+```
+
+
+# Compare acoustic features to human behavior
+
+## Extract difference scores
+
+First we extract all differences from the z-scored features.
+
+```{r}
+
+df_audio$label = fct_recode(df_audio$label,
+                            "Request" = "request",
+                            "Non-request" = "literal")
+
+df_audio$item = paste(df_audio$speaker, df_audio$stimNum, sep="_")
+
+critical_audio = df_audio 
+slope_IR = filter(critical_audio, label == "Request")$slope_f0_z_score
+slope_literal = filter(critical_audio, label == "Non-request")$slope_f0_z_score
+slope_diff = slope_IR - slope_literal
+
+duration_f0_IR = filter(critical_audio, label == "Request")$duration_f0_z_score
+duration_f0_literal = filter(critical_audio, label == "Non-request")$duration_f0_z_score
+duration_f0_diff = duration_f0_IR - duration_f0_literal
+
+sd_intensity_IR = filter(critical_audio, label == "Request")$sd_intensity_z_score
+sd_intensity_literal = filter(critical_audio, label == "Non-request")$sd_intensity_z_score
+sd_intensity_diff = sd_intensity_IR - sd_intensity_literal
+
+mean_intensity_IR = filter(critical_audio, label == "Request")$mean_intensity_z_score
+mean_intensity_literal = filter(critical_audio, label == "Non-request")$mean_intensity_z_score
+mean_intensity_diff = mean_intensity_IR - mean_intensity_literal
+
+mean_f0_IR = filter(critical_audio, label == "Request")$mean_f0_z_score
+mean_f0_literal = filter(critical_audio, label == "Non-request")$mean_f0_z_score
+mean_f0_diff = mean_f0_IR - mean_f0_literal
+
+sd_f0_IR = filter(critical_audio, label == "Request")$sd_f0_z_score
+sd_f0_literal = filter(critical_audio, label == "Non-request")$sd_f0_z_score
+sd_f0_diff = sd_f0_IR - sd_f0_literal
+
+range_f0_IR = filter(critical_audio, label == "Request")$range_f0_z_score
+range_f0_literal = filter(critical_audio, label == "Non-request")$range_f0_z_score
+range_f0_diff = range_f0_IR - range_f0_literal
+
+
+item = filter(critical_audio, label == "Request")$item
+
+new_df = data.frame(item, 
+                    slope_diff, 
+                    duration_f0_diff,
+                    sd_intensity_diff,
+                    mean_intensity_diff,
+                    mean_f0_diff,
+                    sd_f0_diff,
+                    range_f0_diff)
+
+new_df$item = factor(new_df$item)
+new_df
+
+```
+
+## Merge datasets
+
+```{r}
+
+merged = merge(experimental_data, new_df, by="item")
+head(merged)
+merged$Correct = fct_recode(factor(merged$correct),
+                            "Yes" = "1",
+                            "No" = "0")
+
+```
+
+### Do larger differences in each feature predict higher accuracy?
+
+```{r}
+model_accuracy_full = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker + 
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+summary(model_accuracy_full)
+
+```
+
+#### F0 slope
+
+```{r}
+model_accuracy_no_slope_interaction = glmer(data = merged,
+                      Correct ~ slope_diff +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_slope = glmer(data = merged,
+                      Correct ~ mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_slope_interaction)
+anova(model_accuracy_no_slope_interaction, model_accuracy_no_slope)
+
+```
+
+#### Mean F0
+
+```{r}
+model_accuracy_no_mean_f0_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff +
+                       duration_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_mean_f0 = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_mean_f0_interaction)
+anova(model_accuracy_no_mean_f0_interaction, model_accuracy_no_mean_f0)
+
+```
+
+#### F0 duration (number of voiced frames)
+
+```{r}
+model_accuracy_no_f0_dur_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_f0_dur = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       range_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_f0_dur_interaction)
+anova(model_accuracy_no_f0_dur_interaction, model_accuracy_no_f0_dur)
+
+```
+
+
+
+#### F0 range
+
+```{r}
+model_accuracy_no_f0_range_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_f0_range = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_f0_range_interaction)
+anova(model_accuracy_no_f0_range_interaction, model_accuracy_no_f0_range)
+
+```
+
+
+#### SD F0
+
+```{r}
+model_accuracy_no_f0_sd_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form+
+                       sd_f0_diff +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_f0_sd = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                        range_f0_diff * form+
+                       duration_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_f0_sd_interaction)
+anova(model_accuracy_no_f0_sd_interaction, model_accuracy_no_f0_sd)
+
+```
+
+#### Mean Intensity
+
+```{r}
+model_accuracy_no_mean_intensity_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form+
+                       sd_f0_diff * form +
+                       mean_intensity_diff +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_mean_intensity = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                        range_f0_diff * form+
+                        sd_f0_diff * form +
+                       duration_f0_diff * form +
+                       sd_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_mean_intensity_interaction)
+anova(model_accuracy_no_mean_intensity_interaction, model_accuracy_no_mean_intensity)
+
+```
+
+#### SD Intensity
+
+```{r}
+model_accuracy_no_sd_intensity_interaction = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                       duration_f0_diff * form +
+                       range_f0_diff * form+
+                       sd_f0_diff * form +
+                       mean_intensity_diff * form +
+                       sd_intensity_diff +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+model_accuracy_no_sd_intensity = glmer(data = merged,
+                      Correct ~ slope_diff * form +
+                        mean_f0_diff * form +
+                        range_f0_diff * form+
+                        sd_f0_diff * form +
+                       duration_f0_diff * form +
+                       mean_intensity_diff * form +
+                        form * speaker +
+                        (1 | subject) + (1 | stimNum),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+```
+
+
+```{r}
+anova(model_accuracy_full, model_accuracy_no_sd_intensity_interaction)
+anova(model_accuracy_no_sd_intensity_interaction, model_accuracy_no_sd_intensity)
+```
+
+#### Visualizations
+
+```{r}
+merged %>%
+  ggplot(aes(x = form,
+             y = slope_diff,
+             fill = Correct)) +
+  geom_boxplot() +
+  theme_minimal()
+
+merged %>%
+  ggplot(aes(x = form,
+             y = mean_f0_diff,
+             fill = Correct)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+
+### Multiple comparisons correction
+
+```{r}
+p1 = anova(model_accuracy_full, model_accuracy_no_slope_interaction)$`Pr(>Chisq)`[2]
+p2 = anova(model_accuracy_no_slope_interaction, model_accuracy_no_slope)$`Pr(>Chisq)`[2]
+p3 = anova(model_accuracy_full, model_accuracy_no_mean_f0_interaction)$`Pr(>Chisq)`[2]
+p4 = anova(model_accuracy_no_mean_f0_interaction, model_accuracy_no_mean_f0)$`Pr(>Chisq)`[2]
+p5 = anova(model_accuracy_full, model_accuracy_no_f0_dur_interaction)$`Pr(>Chisq)`[2]
+p6 = anova(model_accuracy_no_f0_dur_interaction, model_accuracy_no_f0_dur)$`Pr(>Chisq)`[2]
+p7 = anova(model_accuracy_full, model_accuracy_no_f0_range_interaction)$`Pr(>Chisq)`[2]
+p8 = anova(model_accuracy_no_f0_range_interaction, model_accuracy_no_f0_range)$`Pr(>Chisq)`[2]
+p9 = anova(model_accuracy_full, model_accuracy_no_f0_sd_interaction)$`Pr(>Chisq)`[2]
+p10 = anova(model_accuracy_no_f0_sd_interaction, model_accuracy_no_f0_sd)$`Pr(>Chisq)`[2]
+p11 = anova(model_accuracy_full, model_accuracy_no_mean_intensity_interaction)$`Pr(>Chisq)`[2]
+p12 = anova(model_accuracy_no_mean_intensity_interaction, model_accuracy_no_mean_intensity)$`Pr(>Chisq)`[2]
+p13 = anova(model_accuracy_full, model_accuracy_no_sd_intensity_interaction)$`Pr(>Chisq)`[2]
+p14 = anova(model_accuracy_no_sd_intensity_interaction, model_accuracy_no_sd_intensity)$`Pr(>Chisq)`[2]
+
+p.adjust(c(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14), method="holm")
+
+```
+
