@@ -65,7 +65,6 @@ experimental_data$speaker_recoded = fct_recode(experimental_data$speaker,
 
 experimental_data$item = factor(paste(experimental_data$speaker_recoded, experimental_data$stimNum, sep = "_"))
 
-
 experimental_data$form = fct_recode(experimental_data$form,
                            "conventional" = "modal",
                            "nonconventional" = "indirect")
