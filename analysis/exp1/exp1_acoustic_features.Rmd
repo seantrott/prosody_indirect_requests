@@ -47,23 +47,8 @@ df_audio = df_audio %>%
 
 ```{r}
 
-experimental_data = read.csv("../../data/exp1/experiment1_concat_full.csv")
-experimental_data = filter(experimental_data, answer %in% c("first", "second"))
-
-
-
-experimental_data$speaker_recoded = fct_recode(experimental_data$speaker,
-                           "S1" = "Danny",
-                           "S2" = "Karen",
-                           "S3" = "Katie",
-                           "S4" = "Maiyi",
-                           "S5" = "Nimish")
-
-experimental_data$item = factor(paste(experimental_data$speaker_recoded, experimental_data$stimNum, sep = "_"))
-
-experimental_data$form = fct_recode(experimental_data$form,
-                           "conventional" = "modal",
-                           "nonconventional" = "indirect")
+experimental_data = read.csv("../../data/exp1/exp1_critical.csv")
+experimental_data$item = factor(paste(experimental_data$speaker, experimental_data$stimNum, sep = "_"))
 
 
 ```
