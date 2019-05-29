@@ -74,6 +74,13 @@ coded = coded %>%
 ```
 
 
+## 
+
+```{r}
+write.csv(coded, "data")
+```
+
+
 # Can people detect a signal, generally?
 
 ## Descriptive

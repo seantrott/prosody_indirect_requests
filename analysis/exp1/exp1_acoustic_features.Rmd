@@ -27,8 +27,8 @@ df_audio = read_csv("../../data/audio_features/audio_features.csv")
 df_audio$label = factor(df_audio$label)
 
 df_audio$label = fct_recode(df_audio$label,
-                            "request" = "IR",
-                            "literal" = "Literal")
+                            "Request" = "IR",
+                            "Non-Request" = "Literal")
 
 df_audio = df_audio %>% 
   group_by(speaker) %>% 
@@ -408,16 +408,64 @@ p.adjust(c(p1, p2, p3, p4, p5, p6, p7), method="holm")
 ### Visualize
 
 ```{r}
+
+df_audio$label = factor(df_audio$label, levels=c("Non-Request", "Request"))
+
 df_audio %>%
-  filter(form == "nonconventional") %>%
-  ggplot(aes(x = label,
-             y = duration_f0_z_score)) +
+  # filter(form == "nonconventional") %>%
+  ggplot(aes(x = form,
+             y = duration_f0_z_score,
+             fill = label)) +
   geom_boxplot() +
-  labs(x = "Speaker intent",
-       y = "#Voiced Frames (Z-scored)",
-       title = "#Voiced frames (non-conventional)") +
+  labs(x = "Form",
+       y = "#Voiced frames (z-scored)",
+       title = "#Voiced frames by speaker intent") +
+  guides(fill=guide_legend(title="Speaker intent")) +
   theme_minimal()
 
+ggsave("../../Figures/f0_duration_analysis.png", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_duration_analysis.tiff", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_duration_analysis.pdf", 
+         units="in", width=6, height=4, dpi=300)
+
+
+df_audio %>%
+  ggplot(aes(x = form,
+             y = slope_f0_z_score,
+             fill = label)) +
+  geom_boxplot() +
+  labs(x = "Form",
+       y = "F0 Slope (Z-scored)",
+       title = "F0 slope by speaker intent") +
+  guides(fill=guide_legend(title="Speaker Intent")) +
+  theme_minimal()
+
+ggsave("../../Figures/f0_slope.png", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_slope.tiff", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_slope.pdf", 
+         units="in", width=6, height=4, dpi=300)
+
+df_audio %>%
+  ggplot(aes(x = form,
+             y = mean_intensity_z_score,
+             fill = label)) +
+  geom_boxplot() +
+  labs(x = "Form",
+       y = "Mean intensity (Z-scored)",
+       title = "Mean intensity by speaker intent") +
+  guides(fill=guide_legend(title="Speaker Intent")) +
+  theme_minimal()
+
+ggsave("../../Figures/mean_intensity.png", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/mean_intensity.tiff", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/mean_intensity.pdf", 
+         units="in", width=6, height=4, dpi=300)
 ```
 
 
@@ -508,39 +556,36 @@ First we extract all differences from the z-scored features.
 
 ```{r}
 
-df_audio$label = fct_recode(df_audio$label,
-                            "Request" = "request",
-                            "Non-request" = "literal")
 
 df_audio$item = paste(df_audio$speaker, df_audio$stimNum, sep="_")
 
 critical_audio = df_audio 
 slope_IR = filter(critical_audio, label == "Request")$slope_f0_z_score
-slope_literal = filter(critical_audio, label == "Non-request")$slope_f0_z_score
+slope_literal = filter(critical_audio, label == "Non-Request")$slope_f0_z_score
 slope_diff = slope_IR - slope_literal
 
 duration_f0_IR = filter(critical_audio, label == "Request")$duration_f0_z_score
-duration_f0_literal = filter(critical_audio, label == "Non-request")$duration_f0_z_score
+duration_f0_literal = filter(critical_audio, label == "Non-Request")$duration_f0_z_score
 duration_f0_diff = duration_f0_IR - duration_f0_literal
 
 sd_intensity_IR = filter(critical_audio, label == "Request")$sd_intensity_z_score
-sd_intensity_literal = filter(critical_audio, label == "Non-request")$sd_intensity_z_score
+sd_intensity_literal = filter(critical_audio, label == "Non-Request")$sd_intensity_z_score
 sd_intensity_diff = sd_intensity_IR - sd_intensity_literal
 
 mean_intensity_IR = filter(critical_audio, label == "Request")$mean_intensity_z_score
-mean_intensity_literal = filter(critical_audio, label == "Non-request")$mean_intensity_z_score
+mean_intensity_literal = filter(critical_audio, label == "Non-Request")$mean_intensity_z_score
 mean_intensity_diff = mean_intensity_IR - mean_intensity_literal
 
 mean_f0_IR = filter(critical_audio, label == "Request")$mean_f0_z_score
-mean_f0_literal = filter(critical_audio, label == "Non-request")$mean_f0_z_score
+mean_f0_literal = filter(critical_audio, label == "Non-Request")$mean_f0_z_score
 mean_f0_diff = mean_f0_IR - mean_f0_literal
 
 sd_f0_IR = filter(critical_audio, label == "Request")$sd_f0_z_score
-sd_f0_literal = filter(critical_audio, label == "Non-request")$sd_f0_z_score
+sd_f0_literal = filter(critical_audio, label == "Non-Request")$sd_f0_z_score
 sd_f0_diff = sd_f0_IR - sd_f0_literal
 
 range_f0_IR = filter(critical_audio, label == "Request")$range_f0_z_score
-range_f0_literal = filter(critical_audio, label == "Non-request")$range_f0_z_score
+range_f0_literal = filter(critical_audio, label == "Non-Request")$range_f0_z_score
 range_f0_diff = range_f0_IR - range_f0_literal
 
 
@@ -885,5 +930,47 @@ p14 = anova(model_accuracy_no_sd_intensity_interaction, model_accuracy_no_sd_int
 
 p.adjust(c(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14), method="holm")
 
+```
+
+
+
+## Visualizations
+
+
+```{r}
+
+merged$form = factor(merged$form, levels=c("conventional", "nonconventional"))
+merged %>%
+  ggplot(aes(x = form,
+             y = slope_diff,
+             fill = Correct)) +
+  geom_boxplot(outlier.shape = NA) +
+  labs(x = "Form",
+       y = "Request slope - Non-Request Slope",
+       title = "F0 slope differences by correct responses") +
+  guides(fill=guide_legend(title="Correct")) +
+  theme_minimal()
+
+ggsave("../../Figures/f0_slope_exp1.png", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_slope_exp1.tiff", 
+         units="in", width=6, height=4, dpi=300)
+ggsave("../../Figures/f0_slope_exp1.pdf", 
+         units="in", width=6, height=4, dpi=300)
+
+
+f = merged %>%
+  filter(form == "nonconventional")
+
+s1 = filter(f, Correct=="No")$slope_diff
+s2 = filter(f, Correct=="Yes")$slope_diff
+
+f %>%
+  ggplot(aes(x = slope_diff,
+             fill = Correct)) +
+  geom_density(alpha = .6)
+
+ggsave("../../Figures/f0_slope_nonconventional_supplementary.pdf", 
+         units="in", width=6, height=4, dpi=300)
 ```
 
