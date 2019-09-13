@@ -1,0 +1,78 @@
+---
+title: "Prosody: Experiment 3"
+output: 
+  html_document:
+    toc: true
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(forcats)
+library(lme4)
+```
+
+# Reading in data
+
+```{r}
+# setwd("/Users/seantrott/Dropbox/UCSD/Research/IndirectSpeechActs/Prosody/prosody_indirect_requests/analysis/exp3/")
+coded = read.csv("../../data/exp3/exp3_critical.csv")
+
+```
+
+
+## Descriptive
+
+```{r}
+coded %>%
+  group_by(form) %>%
+  summarise(mean_request = mean(numeric_response),
+            sd_request = sd(numeric_response))
+
+coded_critical = coded %>%
+  filter(form %in% c("conventional", "nonconventional"))
+
+coded_critical %>%
+  group_by(form) %>%
+  summarise(mean_request = mean(numeric_response),
+            sd_request = sd(numeric_response))
+```
+
+
+### By-item (all)
+
+```{r}
+df_grouped = coded %>%
+  group_by(form, topic) %>%
+  summarise(mean_request = mean(numeric_response),
+            sd_request = sd(numeric_response))
+
+df_grouped
+```
+
+
+## Analysis
+
+### Only critical forms
+
+```{r}
+
+
+model_full = glmer(data = coded_critical,
+                   response ~ form +
+                     (1 + form | subject) +
+                     (1 | stimNum),
+                   control=glmerControl(optimizer="bobyqa"),
+                   family = binomial())
+
+model_reduced = glmer(data = coded_critical,
+                   response ~  (1 + form | subject) +
+                     (1 | stimNum),
+                   control=glmerControl(optimizer="bobyqa"),
+                   family = binomial())
+
+anova(model_full, model_reduced)
+
+summary(model_full)
+```
+

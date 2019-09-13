@@ -390,69 +390,6 @@ p7 = anova(model_all_features_non, model_reduced_no_sd_intensity_non)$`Pr(>Chisq
 p.adjust(c(p1, p2, p3, p4, p5, p6, p7), method="holm")
 ```
 
-### Visualize
-
-```{r}
-
-df_audio$label = factor(df_audio$label, levels=c("Non-Request", "Request"))
-
-df_audio %>%
-  # filter(form == "nonconventional") %>%
-  ggplot(aes(x = form,
-             y = duration_f0_z_score,
-             fill = label)) +
-  geom_boxplot() +
-  labs(x = "Form",
-       y = "#Voiced frames (z-scored)",
-       title = "#Voiced frames by speaker intent") +
-  guides(fill=guide_legend(title="Speaker intent")) +
-  theme_minimal()
-
-ggsave("../../Figures/f0_duration_analysis.png", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_duration_analysis.tiff", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_duration_analysis.pdf", 
-         units="in", width=6, height=4, dpi=300)
-
-
-df_audio %>%
-  ggplot(aes(x = form,
-             y = slope_f0_z_score,
-             fill = label)) +
-  geom_boxplot() +
-  labs(x = "Form",
-       y = "F0 Slope (Z-scored)",
-       title = "F0 slope by speaker intent") +
-  guides(fill=guide_legend(title="Speaker Intent")) +
-  theme_minimal()
-
-ggsave("../../Figures/f0_slope.png", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_slope.tiff", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_slope.pdf", 
-         units="in", width=6, height=4, dpi=300)
-
-df_audio %>%
-  ggplot(aes(x = form,
-             y = mean_intensity_z_score,
-             fill = label)) +
-  geom_boxplot() +
-  labs(x = "Form",
-       y = "Mean intensity (Z-scored)",
-       title = "Mean intensity by speaker intent") +
-  guides(fill=guide_legend(title="Speaker Intent")) +
-  theme_minimal()
-
-ggsave("../../Figures/mean_intensity.png", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/mean_intensity.tiff", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/mean_intensity.pdf", 
-         units="in", width=6, height=4, dpi=300)
-```
-
 
 # Train classifier(s)
 
@@ -490,7 +427,7 @@ for (iterating_index in c(1:nrow(df_audio))) {
 df_audio$lr_probs = prob_outputs
 
 df_audio$lr_prediction = ifelse(df_audio$lr_probs > 0.5,
-                             "literal","request")
+                             "Non-Request","Request")
 
 df_audio$lr_correct = df_audio$lr_prediction == df_audio$label
 mean(df_audio$lr_correct)
@@ -525,7 +462,7 @@ for (iterating_index in c(1:nrow(df_audio))) {
 df_audio$lr_probs = prob_outputs
 
 df_audio$lr_prediction = ifelse(df_audio$lr_probs > 0.5,
-                             "literal","request")
+                             "Non-Request","Request")
 
 df_audio$lr_correct = df_audio$lr_prediction == df_audio$label
 mean(df_audio$lr_correct)
@@ -586,7 +523,6 @@ new_df = data.frame(item,
                     range_f0_diff)
 
 new_df$item = factor(new_df$item)
-new_df
 
 ```
 
@@ -599,6 +535,8 @@ head(merged)
 merged$Correct = fct_recode(factor(merged$correct),
                             "Yes" = "1",
                             "No" = "0")
+
+merged$form = factor(merged$form, levels=c("non-conventional", "conventional"))
 
 ```
 
@@ -917,45 +855,4 @@ p.adjust(c(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14), method=
 
 ```
 
-
-
-## Visualizations
-
-
-```{r}
-
-merged$form = factor(merged$form, levels=c("conventional", "nonconventional"))
-merged %>%
-  ggplot(aes(x = form,
-             y = slope_diff,
-             fill = Correct)) +
-  geom_boxplot(outlier.shape = NA) +
-  labs(x = "Form",
-       y = "Request slope - Non-Request Slope",
-       title = "F0 slope differences by correct responses") +
-  guides(fill=guide_legend(title="Correct")) +
-  theme_minimal()
-
-ggsave("../../Figures/f0_slope_exp1.png", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_slope_exp1.tiff", 
-         units="in", width=6, height=4, dpi=300)
-ggsave("../../Figures/f0_slope_exp1.pdf", 
-         units="in", width=6, height=4, dpi=300)
-
-
-f = merged %>%
-  filter(form == "nonconventional")
-
-s1 = filter(f, Correct=="No")$slope_diff
-s2 = filter(f, Correct=="Yes")$slope_diff
-
-f %>%
-  ggplot(aes(x = slope_diff,
-             fill = Correct)) +
-  geom_density(alpha = .6)
-
-ggsave("../../Figures/f0_slope_nonconventional_supplementary.pdf", 
-         units="in", width=6, height=4, dpi=300)
-```
 

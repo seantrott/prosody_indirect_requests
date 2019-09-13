@@ -30,23 +30,6 @@ sd(coded$correct)
 ```
 
 
-## Visualization
-```{r}
-coded %>%
-  ggplot(aes(x = answer, y = button_pressed)) +
-  geom_bar(stat="summary", position="dodge", fun.y="mean") +
-  stat_summary (fun.y = function(x){mean(x)},
-                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
-                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
-                geom= 'pointrange', 
-                position=position_dodge(width=0.95)) +
-  theme_minimal() +
-  ggtitle("% 'Second' by condition") +
-  xlab("Condition") +
-  ylab("Percent choosing 'second' utterance") +
-  scale_y_continuous(limits = c(0, 1))
-```
-
 ## Analysis
 
 A **glmer** model predictig *response* from *correct answer* explains more variance than a model without the fixed effect of *correct answer*. (Both models contain random slopes for items and subjects.) In other words, participants are sensitive overall to which utterance was intended as a request.
@@ -66,24 +49,6 @@ anova(m1,m1.reduced)
 ```
 
 # How does accuracy interact with other factors?
-
-## Visualization 
-
-```{r}
-coded %>%
-  ggplot(aes(x = speaker, y = correct, fill = form)) +
-  geom_bar(stat="summary", position="dodge", fun.y="mean") +
-  stat_summary (fun.y = function(x){mean(x)},
-                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
-                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
-                geom= 'pointrange', 
-                position=position_dodge(width=0.95)) +
-  theme_minimal() +
-  labs(x = "Speaker",
-       y = "Accuracy",
-       title = "Accuracy by form and speaker") +
-  geom_hline(yintercept=.5, colour="black", linetype="dotted")
-```
 
 ## Analysis
 
@@ -133,40 +98,6 @@ anova(m1.reduced, m1.reduced.form)
 anova(m1.reduced, m1.reduced.speaker)
 anova(m1.reduced.form, m1.null)
 anova(m1.reduced.speaker, m1.null)
-```
-
-### Different visualization
-
-
-```{r}
-summ.prosody <- coded %>% group_by(subject, speaker, form) %>% summarise(accuracy = mean(correct))
-
-s = table(summ.prosody$subject, summ.prosody$speaker)
-
-summ.prosody %>%
-  ggplot(aes(x = factor(speaker),
-             y = factor(subject),
-             fill = accuracy)) +
-  geom_tile() +
-  facet_grid(~form)
-
-summ.prosody %>%
-  ggplot(aes(x = speaker,
-             y = accuracy,
-             fill = form)) +
-  geom_boxplot() +
-  labs(x = "Speaker",
-       y = "Accuracy",
-       title = "Accuracy by speaker and form") +
-  geom_hline(yintercept = .5, colour = "red", linetype = "dotted") +
-  theme_minimal()
-
-  
-ggplot(data=summ.prosody, aes(x=accuracy, fill=form)) +
-  geom_density(alpha=.7) +
-  theme_minimal() +
-  geom_vline(xintercept = .5, colour="black", linetype="dotted") +
-  facet_grid(~speaker)
 ```
 
 # Exploratory Analyses
@@ -260,21 +191,6 @@ anova(m1.order_plus_speaker, m1.only_speaker)
 anova(m1.order_by_block, m1.null)
 ```
 
-```{r}
-coded %>%
-  ggplot(aes(x=order_by_block, y=correct)) +
-  geom_point(stat="summary", fun.y="mean") + 
-  stat_summary (fun.y = function(x){mean(x)},
-                fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
-                fun.ymax = function(x){mean(x) + 1*sd(x)/sqrt(length(x))},
-                geom= 'pointrange', 
-                position=position_dodge(width=0.95)) +
-  theme_minimal() +
-  xlab("Order by block") +
-  ylab("Accuracy") +
-  geom_smooth(method = "lm") +
-  scale_y_continuous(limits=c(0, 1))
-```
 
 
 # Discussion
