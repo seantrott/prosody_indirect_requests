@@ -12,4 +12,4 @@ All identifying information about subjects (gender, age, native language, etc.) 
 * Code to reproduce the analysis of behavioral data in Experiment 1 can be found at: `analysis/exp1/exp1_behavior.Rmd`  
 * Code to reproduce the analysis of acoustic features and Experiment 1 accuracy can be found at: `analysis/exp1/exp1_acoustic_features.Rmd`   
 * Code to reproduce all analyses for Experiment 2 (behavior, acoustic features, item norming) can be found at: `analysis/exp2/exp2_all.Rmd`   
-* Code to reproduce all analyses for Experiment 3 can be found at: `analysis/exp2/exp2_behavior.Rmd`   
+* Code to reproduce all analyses for Experiment 3 can be found at: `analysis/exp3/exp3_behavior.Rmd`   
