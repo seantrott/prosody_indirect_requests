@@ -33,14 +33,13 @@ length(unique(coded$subject))
 
 ```{r}
 mean(coded$correct)
-sd(coded$correct)
 ```
 
 
 ## Visualization
 ```{r}
 coded %>%
-  ggplot(aes(x = condition, y = numeric_response)) +
+  ggplot(aes(x = form, y = numeric_response, fill = condition)) +
   geom_bar(stat="summary", position="dodge", fun.y="mean") +
   stat_summary (fun.y = function(x){mean(x)},
                 fun.ymin = function(x){mean(x) - 1*sd(x)/sqrt(length(x))},
@@ -56,43 +55,33 @@ coded %>%
 
 ## Analysis
 
-A **glmer** model predictig *response* from *correct answer* explains more variance than a model without the fixed effect of *correct answer*. (Both models contain random slopes for items and subjects.) In other words, participants are sensitive overall to which utterance was intended as a request.
+Both `form` and `condition` explain significant sources of variance in participants' responses.
 
-```{r}
-m1 = glmer(data=coded, response ~ condition + (1 + condition | stimNum) +
-             (1 + condition | subject),
-           control=glmerControl(optimizer="bobyqa"),
-         family=binomial())
-
-m1.reduced =glmer(data=coded, response ~ (1 + condition | stimNum) +
-                    (1 + condition | subject),
-                  control=glmerControl(optimizer="bobyqa"),
-                    family=binomial())
-
-anova(m1,m1.reduced)
-```
-
-
-### Does form also predict response?
 
 ```{r}
 
-m1_with_form = glmer(data=coded, response ~ condition + form +
+m1_full = glmer(data=coded, response ~ condition + form + 
                        (1 + condition | stimNum) +
              (1 + condition + form | subject),
            control=glmerControl(optimizer="bobyqa"),
          family=binomial())
 
-m1_base = glmer(data=coded, response ~ condition + (1 + condition | stimNum) +
+m1_no_form = glmer(data=coded, response ~ condition + (1 + condition | stimNum) +
              (1 + condition + form | subject),
            control=glmerControl(optimizer="bobyqa"),
          family=binomial())
 
 
+m1_no_condition = glmer(data=coded, response ~ form + (1 + condition | stimNum) +
+             (1 + condition + form | subject),
+           control=glmerControl(optimizer="bobyqa"),
+         family=binomial())
 
-anova(m1_with_form, m1_base)
 
-summary(m1_with_form)
+anova(m1_full, m1_no_form)
+anova(m1_full, m1_no_condition)
+
+summary(m1_full)
 ```
 
 
@@ -667,13 +656,22 @@ model_response_full = glmer(data = merged_with_means,
                        control=glmerControl(optimizer="bobyqa"),
                        family = binomial())
 
-model_response_reduced = glmer(data = merged_with_means,
+model_response_no_prior = glmer(data = merged_with_means,
                       response ~ form + condition +
                         (1 + condition + form + mean_request | subject),
                        control=glmerControl(optimizer="bobyqa"),
                        family = binomial())
 
-anova(model_response_full, model_response_reduced)
+model_response_no_condition = glmer(data = merged_with_means,
+                      response ~ form + mean_request +
+                        (1 + condition + form + mean_request | subject),
+                       control=glmerControl(optimizer="bobyqa"),
+                       family = binomial())
+
+
+anova(model_response_full, model_response_no_prior)
+anova(model_response_full, model_response_no_condition)
+
 
 summary(model_response_full)
 

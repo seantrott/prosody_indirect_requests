@@ -1,11 +1,17 @@
 # Prosody for indirect requests
 
-Critical data and R code to reproduce the analyses described in Trott, Reed, Ferreira, & Bergen (2019, CogSci).
+Critical data and R code to reproduce the analyses described in Trott, Reed, Ferreira, & Bergen (2019, Submitted).
 
 
 ## Data
 
 All identifying information about subjects (gender, age, native language, etc.) has been removed. The data includes only critical trials. If you are interested in the demographic data, please contact Sean Trott (sttrott at ucsd dot edu) to discuss data sharing policies.
+
+* Extracted audio features: `data/audio_features/audio_features.csv`  
+* Data for experiment 1: `data/exp1/exp1_critical.csv`  
+* Data for experiment 2: `data/exp2/exp2_critical.csv`  
+* Data for experiment 3: `data/exp3/exp3_critical.csv` 
+* Normed item means: `data/exp3/item_means.csv` 
 
 ## Analyses
 

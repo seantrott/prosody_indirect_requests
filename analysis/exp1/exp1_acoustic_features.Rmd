@@ -40,8 +40,8 @@ df_audio = df_audio %>%
          mean_intensity_z_score = scale(mean_intensity),
          sd_intensity_z_score = scale(sd_intensity)
          )
-```
 
+```
 
 ## Experimental data
 
